@@ -1,8 +1,9 @@
 # Axon Framework Resource Reference Doc
-This document is a collation of resources for understanding the Axon Framework:
+This document is a collation of resources for understanding actual practical usage of the Axon Framework:
 - Feel free to:
-    - use if to lookup something (code snippets/examples/tips).
+    - use it to lookup something (code snippets/examples/tips).
     - contribute a change if something is wrong or missing.
+    - fork it and make a better/derivative version. 
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->

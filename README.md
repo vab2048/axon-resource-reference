@@ -19,14 +19,11 @@ This document is a collation of resources for understanding the Axon Framework:
   - [Manually creating a `@Repository<T>` bean](#manually-creating-a-repositoryt-bean)
     - [Backed by an `EventStore` repository](#backed-by-an-eventstore-repository)
 - [Examples of snapshotting](#examples-of-snapshotting)
+  - [idugalic/digital-restaurant](#idugalicdigital-restaurant)
+- [Tracking Event Processor](#tracking-event-processor)
+  - [Resetting a tracking event processor](#resetting-a-tracking-event-processor)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
-
-- [axon-resource-reference](#axon-resource-reference)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
 
 ## Project Structure (Start Here)
 
@@ -175,15 +172,42 @@ Occasionally, we need to write a `@Component` which has access to an underlying 
 
 For original code source, see: [giftcard-demo](https://github.com/AxonIQ/giftcard-demo/blob/af76b5c4b9ba8623b12108bfc9060fe1df58cce9/src/main/java/io/axoniq/demo/giftcard/command/GcCommandConfiguration.java).
 
+
 # Examples of snapshotting
 
+##  [idugalic/digital-restaurant](https://github.com/idugalic/digital-restaurant#snapshoting) 
+
+The digital restaurant application contains examples of how to define snapshotting for your aggregates From the [README](https://github.com/idugalic/digital-restaurant#snapshoting):
+
+    A Snapshot is a denormalization of the current state of an aggregate at a given point in time
+    It represents the state when all events to that point in time have been replayed
+    They are used as a heuristic to prevent the need to load all events for the entire history of an aggregate
+
+Each aggregate defines a snapshot trigger:
+
+    @Aggregate(snapshotTriggerDefinition = "courierSnapshotTriggerDefinition")
+    Feel free to configure a treshold (number of events) that should trigger the snapshot creation. This treshold is externalized as a property axon.snapshot.trigger.treshold.courier
+
+- `Courier` `@Aggregate`:
+   - [`@Aggregate` definition](https://github.com/idugalic/digital-restaurant/blob/master/drestaurant-libs/drestaurant-courier/src/main/kotlin/com/drestaurant/courier/domain/Courier.kt)
+   - [courierSnapshotTriggerDefinition (`@Bean`)](https://github.com/idugalic/digital-restaurant/blob/master/drestaurant-libs/drestaurant-courier/src/main/kotlin/com/drestaurant/courier/domain/SpringCourierConfiguration.kt)
+- `CourierOrder` `@Aggregate`:
+  - [`@Aggregate` definition](https://github.com/idugalic/digital-restaurant/blob/master/drestaurant-libs/drestaurant-courier/src/main/kotlin/com/drestaurant/courier/domain/CourierOrder.kt)  
+  - [courierOrderSnapshotTriggerDefinition (`@Bean`)](https://github.com/idugalic/digital-restaurant/blob/master/drestaurant-libs/drestaurant-courier/src/main/kotlin/com/drestaurant/courier/domain/SpringCourierConfiguration.kt)
+- `Customer` `@Aggregate`:
+  - [`@Aggregate` definition](https://github.com/idugalic/digital-restaurant/blob/master/drestaurant-libs/drestaurant-customer/src/main/kotlin/com/drestaurant/customer/domain/Customer.kt)
+  - [customerSnapshotTriggerDefinition (`@Bean`)](https://github.com/idugalic/digital-restaurant/blob/master/drestaurant-libs/drestaurant-customer/src/main/kotlin/com/drestaurant/customer/domain/SpringCustomerConfiguration.kt)
+- `CustomerOrder` `@Aggregate`:
+  - [`@Aggregate` definition](https://github.com/idugalic/digital-restaurant/blob/master/drestaurant-libs/drestaurant-customer/src/main/kotlin/com/drestaurant/customer/domain/CustomerOrder.kt)
+  - [customerOrderSnapshotTriggerDefinition (`@Bean`)](https://github.com/idugalic/digital-restaurant/blob/master/drestaurant-libs/drestaurant-customer/src/main/kotlin/com/drestaurant/customer/domain/SpringCustomerConfiguration.kt)
 
 
+# Tracking Event Processor
 
+## Resetting a tracking event processor
 
-
-
-
+See:
+- https://github.com/idugalic/digital-restaurant/blob/b9fa7ad168be418456b1815172d45bd508388479/drestaurant-apps/drestaurant-monolith-rest/src/main/kotlin/com/drestaurant/admin/AxonAdministration.kt
 
 
 

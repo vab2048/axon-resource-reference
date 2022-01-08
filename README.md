@@ -12,9 +12,10 @@ This document is a collation of resources for understanding actual practical usa
   - [Project Structure (Start Here)](#project-structure-start-here)
 - [Examples of testing](#examples-of-testing)
 - [`@Aggregate` Tips](#aggregate-tips)
-  - [Creating an `@Aggregate` from another `@Aggregate`](#creating-an-aggregate-from-another-aggregate)
-    - [Using `AggregateLifecycle.createNew(Class<T>, Callable<T>)` (preferred method)](#using-aggregatelifecyclecreatenewclasst-callablet-preferred-method)
-    - [From an `@EventHandler` (Outdated way but still useful to know)](#from-an-eventhandler-outdated-way-but-still-useful-to-know)
+  - [Creating an `@Aggregate`](#creating-an-aggregate)
+    - [From another aggregate (using `AggregateLifecycle.createNew(Class<T>, Callable<T>)`)](#from-another-aggregate-using-aggregatelifecyclecreatenewclasst-callablet)
+    - [From an `@EventHandler`](#from-an-eventhandler)
+      - [Axon-Trader Example](#axon-trader-example)
 - [`@Repository<T>` Tips](#repositoryt-tips)
   - [Autowiring a `@Repository<T>`](#autowiring-a-repositoryt)
   - [Manually creating a `@Repository<T>` bean](#manually-creating-a-repositoryt-bean)
@@ -22,7 +23,9 @@ This document is a collation of resources for understanding actual practical usa
 - [Examples of snapshotting](#examples-of-snapshotting)
   - [idugalic/digital-restaurant](#idugalicdigital-restaurant)
 - [Tracking Event Processor](#tracking-event-processor)
+  - [Configuring properties](#configuring-properties)
   - [Resetting a tracking event processor](#resetting-a-tracking-event-processor)
+- [Subscription Queries](#subscription-queries)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -47,18 +50,20 @@ See:
 
 # `@Aggregate` Tips
 
-## Creating an `@Aggregate` from another `@Aggregate`
+## Creating an `@Aggregate`
 
-### Using `AggregateLifecycle.createNew(Class<T>, Callable<T>)` (preferred method)
+### From another aggregate (using `AggregateLifecycle.createNew(Class<T>, Callable<T>)`)
+
+See:
+- [reference documentation](https://docs.axoniq.io/reference-guide/v/4.5/axon-framework/axon-framework-commands/modeling/aggregate-creation-from-another-aggregate)
 
 
+### From an `@EventHandler`
 
-### From an `@EventHandler` (Outdated way but still useful to know) 
+Another way to create an aggregate You can build an event listener to listen for an event which then triggers the creation of an aggregate.
 
->    *This section remains for posterity to describe how you used to create an 
->     aggregate from another aggregate in the Axon Framework (I think this was pre 4.0).*
+#### Axon-Trader Example
 
-You can build an event listener to listen for an event which then triggers the creation of an aggregate.
 
 In the [Axon Trader](https://github.com/AxonFramework/Axon-trader/tree/1e987bb111768451d70790e1378ae40dcf93c17b) app
 the relationship between a "company" and an "order book" means that one cannot exist
@@ -67,25 +72,19 @@ without another:
   issued to ensure the creation of the corresponding order book and the business invariant is maintained.
 - We do this by creating an "event listener" `@Component` (some people may call it a `@Service`).
 
-Suppose, the following [command](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/companies/src/main/java/org/axonframework/samples/trader/company/command/CompanyOrderBookListener.java) and [event](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/core-api/src/main/java/org/axonframework/samples/trader/api/company/events.kt) APIs for the [Company](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/companies/src/main/java/org/axonframework/samples/trader/company/command/Company.java) `@Aggregate`:
+>    *N.B. if you want to create an aggregate from another aggregate like in this case then this is the wrong way to do things.
+>     See the section with examples for `AggregateLifecycle.createNew`on the reccomended approach in that case.
+>     This is the old way of doing that. But it still serves as an OK example of how to create an aggregate
+>     from an event handler.*
 
-```kotlin
-data class CreateCompanyCommand(override val companyId: CompanyId, /* ... rest of the fields snipped */)
-data class AddOrderBookToCompanyCommand(override val companyId: CompanyId,  /* ... rest of the fields snipped */)
-```
-```kotlin
-data class CompanyCreatedEvent(override val companyId: CompanyId, /* ... rest of the fields snipped */)
-data class OrderBookAddedToCompanyEvent(override val companyId: CompanyId, /* ... rest of the fields snipped */)
-```
+Suppose, the following APIs:
+- [Company](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/companies/src/main/java/org/axonframework/samples/trader/company/command/Company.java) `@Aggregate`:
+   - [command](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/companies/src/main/java/org/axonframework/samples/trader/company/command/CompanyOrderBookListener.java) 
+   - [event](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/core-api/src/main/java/org/axonframework/samples/trader/api/company/events.kt) 
+- [OrderBook](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/trade-engine/src/main/java/org/axonframework/samples/trader/tradeengine/command/OrderBook.java) `@Aggregate`:
+   - [command](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/core-api/src/main/java/org/axonframework/samples/trader/api/orders/trades/commands.kt) 
+   - [event](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/core-api/src/main/java/org/axonframework/samples/trader/api/orders/trades/events.kt)
 
-And the following (snipped) [command](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/core-api/src/main/java/org/axonframework/samples/trader/api/orders/trades/commands.kt) and [event](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/core-api/src/main/java/org/axonframework/samples/trader/api/orders/trades/events.kt) APIs for the [OrderBook](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/trade-engine/src/main/java/org/axonframework/samples/trader/tradeengine/command/OrderBook.java) `@Aggregate`:
-```kotlin
-data class CreateOrderBookCommand(override val orderBookId: OrderBookId)
-```
-
-```kotlin
-data class OrderBookCreatedEvent(override val orderBookId: OrderBookId)
-```
 
 then you can build an event listener like so:
 
@@ -135,14 +134,6 @@ public class OrderBook {
     // ... rest of class contents snipped...
 }
 ```
-
-This snippet:
-- Shows a slightly outdated way of creating an `@Aggregate`, in that:
-  - you need to create a separate event listener component and react to it.
-- The preferred way of creating an aggregate from another aggregate now is to just use the `AggregateLifecycle.createNew(...)` method. See that subsection for examples.
-
-
-
 
 
 
@@ -205,10 +196,20 @@ Each aggregate defines a snapshot trigger:
 
 # Tracking Event Processor
 
+## Configuring properties
+
+Examples of configuring tracking event processors:
+
+See:
+- [idugalic/axon-scale-demo](https://github.com/idugalic/axon-scale-demo)
+  - [GiftCardHandler `@Component` (`@ProcessingGroup("giftcardprocessor")`)](https://github.com/idugalic/axon-scale-demo/blob/master/src/main/java/com/demo/query/GiftCardHandler.java) 
+  - [application.properties](https://github.com/idugalic/axon-scale-demo/blob/master/src/main/resources/application.properties)
+     - We set `mode=tracking`, `initial-segment-count=4`, `thread-count=4`
+
 ## Resetting a tracking event processor
 
 See:
 - https://github.com/idugalic/digital-restaurant/blob/b9fa7ad168be418456b1815172d45bd508388479/drestaurant-apps/drestaurant-monolith-rest/src/main/kotlin/com/drestaurant/admin/AxonAdministration.kt
 
 
-
+# Subscription Queries

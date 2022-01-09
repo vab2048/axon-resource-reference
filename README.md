@@ -14,8 +14,6 @@ This document is a collation of resources for understanding actual practical usa
 - [`@Aggregate` Tips](#aggregate-tips)
   - [Creating an `@Aggregate`](#creating-an-aggregate)
     - [From another aggregate (using `AggregateLifecycle.createNew(Class<T>, Callable<T>)`)](#from-another-aggregate-using-aggregatelifecyclecreatenewclasst-callablet)
-    - [From an `@EventHandler`](#from-an-eventhandler)
-      - [Axon-Trader Example](#axon-trader-example)
 - [`@Repository<T>` Tips](#repositoryt-tips)
   - [Autowiring a `@Repository<T>`](#autowiring-a-repositoryt)
   - [Manually creating a `@Repository<T>` bean](#manually-creating-a-repositoryt-bean)
@@ -56,85 +54,6 @@ See:
 
 See:
 - [reference documentation](https://docs.axoniq.io/reference-guide/v/4.5/axon-framework/axon-framework-commands/modeling/aggregate-creation-from-another-aggregate)
-
-
-### From an `@EventHandler`
-
-Another way to create an aggregate You can build an event listener to listen for an event which then triggers the creation of an aggregate.
-
-#### Axon-Trader Example
-
-
-In the [Axon Trader](https://github.com/AxonFramework/Axon-trader/tree/1e987bb111768451d70790e1378ae40dcf93c17b) app
-the relationship between a "company" and an "order book" means that one cannot exist
-without another:
-- After a `CompanyCreatedEvent` we need to make sure that a `CreateOrderBookCommand` is 
-  issued to ensure the creation of the corresponding order book and the business invariant is maintained.
-- We do this by creating an "event listener" `@Component` (some people may call it a `@Service`).
-
->    *N.B. if you want to create an aggregate from another aggregate like in this case then this is the wrong way to do things.
->     See the section with examples for `AggregateLifecycle.createNew`on the reccomended approach in that case.
->     This is the old way of doing that. But it still serves as an OK example of how to create an aggregate
->     from an event handler.*
-
-Suppose, the following APIs:
-- [Company](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/companies/src/main/java/org/axonframework/samples/trader/company/command/Company.java) `@Aggregate`:
-   - [command](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/companies/src/main/java/org/axonframework/samples/trader/company/command/CompanyOrderBookListener.java) 
-   - [event](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/core-api/src/main/java/org/axonframework/samples/trader/api/company/events.kt) 
-- [OrderBook](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/trade-engine/src/main/java/org/axonframework/samples/trader/tradeengine/command/OrderBook.java) `@Aggregate`:
-   - [command](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/core-api/src/main/java/org/axonframework/samples/trader/api/orders/trades/commands.kt) 
-   - [event](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/core-api/src/main/java/org/axonframework/samples/trader/api/orders/trades/events.kt)
-
-
-then you can build an event listener like so:
-
-```java
-/**
- * This listener is used to create order book instances when we have created a new company</p>
- * TODO #28 the OrderBook aggregate should be instantiated from the Company aggregate, as is possible since axon 3.3
- **/
-@Service
-@ProcessingGroup("commandPublishingEventHandlers")
-public class CompanyOrderBookListener {
-
-    private static final Logger logger = LoggerFactory.getLogger(CompanyOrderBookListener.class);
-
-    private final CommandGateway commandGateway;
-
-    @Autowired
-    public CompanyOrderBookListener(CommandGateway commandGateway) {
-        this.commandGateway = commandGateway;
-    }
-
-    @EventHandler
-    public void on(CompanyCreatedEvent event) {
-        logger.debug("About to dispatch a new command to create an OrderBook for the company {}", event.getCompanyId());
-
-        OrderBookId orderBookId = new OrderBookId();
-        commandGateway.send(new CreateOrderBookCommand(orderBookId));
-        commandGateway.send(new AddOrderBookToCompanyCommand(event.getCompanyId(), orderBookId));
-    }
-}
-```
-and the [OrderBook aggregate](https://github.com/AxonFramework/Axon-trader/blob/1e987bb111768451d70790e1378ae40dcf93c17b/trade-engine/src/main/java/org/axonframework/samples/trader/tradeengine/command/OrderBook.java) has a command handler annotation on a constructor like this:
-
-```java
-
-@Aggregate
-public class OrderBook {
-
-    @AggregateIdentifier
-    private OrderBookId orderBookId;
-
-    @CommandHandler
-    public OrderBook(CreateOrderBookCommand cmd) {
-        apply(new OrderBookCreatedEvent(cmd.getOrderBookId()));
-    }
-
-    // ... rest of class contents snipped...
-}
-```
-
 
 
 # `@Repository<T>` Tips
@@ -213,3 +132,61 @@ See:
 
 
 # Subscription Queries
+
+(Kotlin) [nklmish/axon-casino](https://github.com/nklmish/axon-casino/tree/019d14c1cd25972fb4a48f6902ee63d30e53974f):
+- Example 1: 
+  - [SingleWalletSummaryQuery Subscription Query (line 167)](https://github.com/nklmish/axon-casino/blob/019d14c1cd25972fb4a48f6902ee63d30e53974f/src/main/kotlin/com/nklmish/demo/playerui/PlayerUI.kt#L167):
+    ```kotlin
+    val queryResult = queryGateway.subscriptionQuery(
+        SingleWalletSummaryQuery(cmd.walletId),                     // 1
+        ResponseTypes.instanceOf(WalletSummary::class.java),        // 2
+        ResponseTypes.instanceOf(WalletSummaryUpdate::class.java))  // 3
+    ``` 
+    - 1: Subscribe to `SingleWalletSummaryQuery`.
+    - 2: Initial subscription will return the response type: `ResponseTypes.instanceOf(WalletSummary::class.java)`
+    - 3: Subsequent updates in the subscription will be of the response type: `ResponseTypes.instanceOf(WalletSummaryUpdate::class.java)`
+  - [SingleWalletSummaryQuery `@QueryHandler`](https://github.com/nklmish/axon-casino/blob/019d14c1cd25972fb4a48f6902ee63d30e53974f/src/main/kotlin/com/nklmish/demo/walletsummary/WalletSummaryProjection.kt#L105):
+    - Provides the initial result to the `SingleWalletSummaryQuery` subscription query.
+    - This initial result is of type: `WalletSummary`. 
+  - [SingleWalletSummaryQuery queryUpdateEmitter.emit(..)](https://github.com/nklmish/axon-casino/blob/019d14c1cd25972fb4a48f6902ee63d30e53974f/src/main/kotlin/com/nklmish/demo/walletsummary/WalletSummaryProjection.kt):
+    - Provides the subsequent updates to the `SingleWalletSummaryQuery` subscription query.
+    - These are updates are of the type `WalletSummaryUpdate`.
+    - There are multiple `@EventHandlers` which do this.
+      - Search for `queryUpdateEmitter.emit(` on the page to see them e.g. line 41, 49, 58, etc.
+- Example 2:
+  - [TotalDepositedQuery Subscription Query (line 20)](https://github.com/nklmish/axon-casino/blob/019d14c1cd25972fb4a48f6902ee63d30e53974f/src/main/kotlin/com/nklmish/demo/managementdata/RestEndpoints.kt#L20):
+    ```kotlin
+    return queryGateway.subscriptionQuery(TotalDepositedQuery(),                   // 1
+           ResponseTypes.multipleInstancesOf(TotalDepositedSample::class.java),    // 2
+           ResponseTypes.instanceOf(TotalDepositedSample::class.java)).updates()   // 3
+    ``` 
+    - 1: Subscribe to `TotalDepositedQuery`.
+    - 2: Initial subscription will return the response type: `ResponseTypes.multipleInstancesOf(TotalDepositedSample::class.java)`
+    - 3: Subsequent updates in the subscription will be of the response type: `ResponseTypes.instanceOf(TotalDepositedSample::class.java)`
+  - [TotalDepositedQuery `@QueryHandler`](https://github.com/nklmish/axon-casino/blob/019d14c1cd25972fb4a48f6902ee63d30e53974f/src/main/kotlin/com/nklmish/demo/managementdata/TotalDepositedProjection.kt#L97):
+    - Provides the initial result to the `TotalDepositedQuery` subscription query.
+    - This initial result is of type: `List<TotalDepositedSample>`.
+  - [TotalDepositedQuery queryUpdateEmitter.emit(..)](https://github.com/nklmish/axon-casino/blob/019d14c1cd25972fb4a48f6902ee63d30e53974f/src/main/kotlin/com/nklmish/demo/managementdata/TotalDepositedProjection.kt#L79):
+    - Provides the subsequent updates to the `TotalDepositedSample` subscription query.
+    - These are updates are of the type `TotalDepositedSample`.
+
+(Java) [fransvanbuul/sq-webinar](https://github.com/fransvanbuul/sq-webinar/tree/e99d378ebfd1b1fd79c08dbe0b558960a3fba12b):
+- [`FetchCardSummariesQuery` Subscription Query](https://github.com/fransvanbuul/sq-webinar/blob/e99d378ebfd1b1fd79c08dbe0b558960a3fba12b/src/main/java/io/axoniq/demo/sqwebinar/restfrontend/GcRestController.java#L30):
+  ```java
+   return queryGateway.subscriptionQuery(
+          new FetchCardSummariesQuery(0,1, new CardSummaryFilter("")), // 1
+          ResponseTypes.multipleInstancesOf(CardSummary.class),        // 2
+          ResponseTypes.instanceOf(CardSummary.class)).updates();      // 3
+   ```
+  - 1: Subscribe to `FetchCardSummariesQuery`.
+  - 2: Initial subscription will return the response type: `ResponseTypes.multipleInstancesOf(CardSummary.class)`
+  - 3: Subsequent updates in the subscription will be of the response type: `ResponseTypes.instanceOf(CardSummary.class)`
+- [FetchCardSummariesQuery `@QueryHandler`](https://github.com/fransvanbuul/sq-webinar/blob/e99d378ebfd1b1fd79c08dbe0b558960a3fba12b/src/main/java/io/axoniq/demo/sqwebinar/readside/CardSummaryProjection.java#L49):
+  - Provides the initial result to the `FetchCardSummariesQuery` subscription query.
+  - The initial result is of type: `List<CardSummary>`
+- [FetchCardSummariesQuery queryUpdateEmitter.emit(..)](https://github.com/fransvanbuul/sq-webinar/blob/e99d378ebfd1b1fd79c08dbe0b558960a3fba12b/src/main/java/io/axoniq/demo/sqwebinar/readside/CardSummaryProjection.java#L37):
+  - Provides the subsequent updates to the `FetchCardSummariesQuery` subscription query.
+  - These are updates are of the type `CardSummary`.
+
+(Kotlin) [idugalic/digital-restaurant](https://github.com/idugalic/digital-restaurant/tree/920248e62c5b7d9b8d3c365b2f911355aa19c7db):
+- Lots of examples in this repo.
